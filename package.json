@@ -1,0 +1,10 @@
+{
+  "name": "multi-agent-coding-platform",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "typecheck": "pnpm -w -r run typecheck",
+    "test": "pnpm -w -r run test",
+    "dev": "pnpm -w -r run dev"
+  }
+}
