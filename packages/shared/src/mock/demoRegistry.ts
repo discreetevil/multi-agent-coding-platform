@@ -1,6 +1,4 @@
-import { Task } from './interfaces/Task';
 import { AgentRegistry } from './registry/AgentRegistry';
-import { SimpleAgentRouter } from './router/SimpleAgentRouter';
 import { MockAgentAdapter } from './mock/MockAgentAdapter';
 import { AgentDescriptor } from './interfaces/AgentDescriptor';
 
