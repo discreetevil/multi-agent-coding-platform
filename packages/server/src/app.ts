@@ -4,15 +4,20 @@ import { SimpleAgentRouter } from '../../shared/src/router/SimpleAgentRouter';
 import { BasicOrchestrator } from '../../shared/src/orchestrator/BasicOrchestrator';
 
 const app = express();
+
 app.use(express.json());
 
 const registryPromise = createDemoRegistry();
+
 const router = new SimpleAgentRouter();
+
 const orchestratorPromise = registryPromise.then(
   (registry) => new BasicOrchestrator(registry, router),
 );
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
 
 app.post('/projects', async (req, res, next) => {
   try {
@@ -32,7 +37,9 @@ app.post('/projects', async (req, res, next) => {
 });
 
 if (require.main === module) {
-  app.listen(3000, () => console.log('Server listening on :3000'));
+  app.listen(3000, () => {
+    console.log('Server listening on :3000');
+  });
 }
 
 export = app;
