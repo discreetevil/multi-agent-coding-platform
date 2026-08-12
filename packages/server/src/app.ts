@@ -2,12 +2,14 @@ import express from 'express';
 import { createDemoRegistry } from '../../shared/src/mock/demoRegistry';
 import { SimpleAgentRouter } from '../../shared/src/router/SimpleAgentRouter';
 import { BasicOrchestrator } from '../../shared/src/orchestrator/BasicOrchestrator';
+import { Task } from '../../shared/src/interfaces/Task';
 
 const app = express();
 
 app.use(express.json());
 
 const registryPromise = createDemoRegistry();
+
 const router = new SimpleAgentRouter();
 
 const orchestratorPromise = registryPromise.then(
@@ -15,10 +17,7 @@ const orchestratorPromise = registryPromise.then(
 );
 
 app.get('/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
-  });
+  res.json({ status: 'ok' });
 });
 
 app.post('/projects', async (req, res, next) => {
@@ -32,92 +31,37 @@ app.post('/projects', async (req, res, next) => {
       tasks: [],
     });
 
-    if (body.task) {
-      const task = await orchestrator.submitTask(project.id, {
-        title: body.task.title || 'OpenAI coding task',
-        description: body.task.description || '',
-        metadata: body.task.metadata || {},
-      });
-
-      if (!process.env.OPENAI_API_KEY) {
-        return res.status(500).json({
-          error: 'OPENAI_API_KEY is not configured in Vercel',
-          project,
-          task,
-        });
-      }
-
-      const response = await fetch(
-        'https://api.openai.com/v1/responses',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: 'gpt-4.1-mini',
-            input: [
-              {
-                role: 'system',
-                content:
-                  'You are the OpenAI implementation agent inside a multi-agent coding platform. Analyze coding tasks carefully. Give practical implementation guidance, identify affected files, and provide production-quality code where appropriate.',
-              },
-              {
-                role: 'user',
-                content:
-                  `Project: ${project.name}\n` +
-                  `Project description: ${project.description}\n\n` +
-                  `Task: ${task.title}\n` +
-                  `Task description: ${task.description}`,
-              },
-            ],
-          }),
-        },
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return res.status(response.status).json({
-          error: 'OpenAI API request failed',
-          details: data,
-          project,
-          task,
-        });
-      }
-
-      const output =
-        data.output_text ||
-        data.output
-          ?.flatMap((item: any) => item.content || [])
-          ?.map((item: any) => item.text || '')
-          ?.join('') ||
-        '';
-
-      task.status = 'completed';
-      task.updatedAt = new Date().toISOString();
-      task.metadata = {
-        ...task.metadata,
-        provider: 'openai',
-        model: 'gpt-4.1-mini',
-        output,
-      };
-
-      return res.json({
-        success: true,
-        project,
-        task,
-        openai: {
-          model: 'gpt-4.1-mini',
-          output,
-        },
-      });
-    }
-
-    return res.json(project);
+    res.json(project);
   } catch (error) {
     next(error);
+  }
+});
+
+app.post('/openai/test', async (req, res, next) => {
+  try {
+    const registry = await registryPromise;
+    const descriptors = registry.listDescriptors();
+    const openaiDesc = descriptors.find((d) => d.provider === 'openai');
+    if (!openaiDesc) {
+      return res.status(404).json({ error: 'OpenAI adapter not registered' });
+    }
+    const adapter = registry.getAdapter(openaiDesc.id);
+    if (!adapter) {
+      return res.status(500).json({ error: 'OpenAI adapter instance missing' });
+    }
+
+    const testTask: Task = {
+      id: 'test-task',
+      title: 'Test OpenAI Call',
+      description: 'Please respond with a short confirmation message.',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    const result = await adapter.sendTask(testTask);
+    res.json(result);
+  } catch (err) {
+    next(err);
   }
 });
 
